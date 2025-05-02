@@ -1,0 +1,6 @@
+@QtechBackend_HostAddress = http://localhost:5103
+
+GET {{QtechBackend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
