@@ -26,16 +26,16 @@ namespace qtechbackend
         {
             var builder = WebApplication.CreateBuilder(args);
 
-      
+            // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddMemoryCache();
             builder.Services.AddAutoMapper(typeof(program));
 
             builder.Services.Configure<FormOptions>(options =>
             {
-                options.MultipartBodyLengthLimit = 10 * 1024 * 1024;
+                options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10MB limit
             });
-     
+            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
 
             builder.Services.AddSwaggerGen(c =>
@@ -53,11 +53,11 @@ namespace qtechbackend
             builder.Services.AddScoped<userService>();
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
             builder.Services.AddTransient<IEmailservice, EmailService>();
-           
+            // Configure the database context
             builder.Services.AddDbContext<ElearningContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("defaultconnection")));
 
-          
+            // Configure JWT authentication
             var jwtsettings = builder.Configuration.GetSection("jwt");
             var key = Encoding.ASCII.GetBytes(jwtsettings["key"]);
 
@@ -80,17 +80,20 @@ namespace qtechbackend
                 };
             });
 
-            
+            // UPDATED: Add CORS services with specific configuration
             builder.Services.AddCors(options =>
             {
-                options.AddDefaultPolicy(builder =>
+                options.AddDefaultPolicy(policy =>
                 {
-                    builder.AllowAnyOrigin()
-                           .AllowAnyMethod()
-                           .AllowAnyHeader();
+                    policy
+                        .WithOrigins("https://agreeable-stone-0a2163e1e.6.azurestaticapps.net")
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials(); // Important for authentication
                 });
             });
 
+            // Register services and repositories
             builder.Services.AddScoped<IVideoService, VideoService>();
             builder.Services.AddScoped<IVideoRepository, VideoRepository>();
             builder.Services.AddScoped<IDocumentationService, DocumentationService>();
@@ -103,10 +106,11 @@ namespace qtechbackend
             builder.Services.AddScoped<IEnrolledRepository, EnrolledRepository>();
             builder.Services.AddScoped<IEnrolledService, EnrolledService>();
 
-            
+            // Register OtpController and its dependencies
             builder.Services.AddScoped<OtpController>();
-            builder.Services.AddScoped<IEmailservice, EmailService>();
+            builder.Services.AddScoped<IEmailservice, EmailService>(); // Example dependency
 
+            // Configure authorization policies
             builder.Services.AddAuthorization(options =>
             {
                 options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
@@ -116,6 +120,7 @@ namespace qtechbackend
 
             var app = builder.Build();
 
+            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -125,10 +130,26 @@ namespace qtechbackend
                 });
             }
 
-
             app.UseHttpsRedirection();
 
+            // IMPORTANT: Use CORS before authentication and authorization
             app.UseCors();
+
+            // Add middleware to handle OPTIONS requests explicitly
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Method == "OPTIONS")
+                {
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", "https://agreeable-stone-0a2163e1e.6.azurestaticapps.net");
+                    context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                    context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                    context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
+                    context.Response.StatusCode = 200;
+                    return;
+                }
+
+                await next();
+            });
 
             app.UseAuthentication();
             app.UseAuthorization();
@@ -138,7 +159,4 @@ namespace qtechbackend
         }
     }
 }
-
-
-
 
